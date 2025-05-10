@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Préstamos Cocina | Universidad</title>
+  <!-- MSAL.js para OAuth2 con Microsoft (Teams) -->
+  <script src="https://alcdn.msauth.net/browser/2.19.0/js/msal-browser.min.js"></script>
+  <!-- QRCode.js para generar el código QR en el navegador -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    #login, #formPrestamo, #qrContainer { margin-top: 1.5rem; }
+    label { display: block; margin-top: .5rem; }
+    input, select, button { padding: .5rem; width: 100%; max-width: 300px; }
+  </style>
+</head>
+<body>
+
+  <h1>Préstamos de Objetos de Cocina</h1>
+  <div id="login">
+    <button id="btnLogin">Iniciar sesión con Microsoft</button>
+  </div>
+
+  <div id="userInfo" style="display:none;">
+    <p>Hola, <span id="userName"></span> (<span id="userEmail"></span>)</p>
+  </div>
+
+  <!-- Formulario de solicitud -->
+  <form id="formPrestamo" style="display:none;">
+    <h2>Solicitar Préstamo</h2>
+    <label for="objeto">Objeto requerido:</label>
+    <select id="objeto" name="objeto" required>
+      <option value="">--Seleccione--</option>
+      <option value="Cuchillo">Cuchillo</option>
+      <option value="Sartén">Sartén</option>
+      <option value="Batidora">Batidora</option>
+      <!-- Agrega aquí más objetos -->
+    </select>
+
+    <label for="fecha_hora">Fecha y hora del préstamo:</label>
+    <input type="datetime-local" id="fecha_hora" name="fecha_hora" required>
+
+    <label for="materia">Materia/Clase:</label>
+    <input type="text" id="materia" name="materia" placeholder="Ej. Cocina 1" required>
+
+    <button type="submit">Enviar Solicitud</button>
+  </form>
+
+  <!-- Aquí aparecerá el QR -->
+  <div id="qrContainer" style="display:none;">
+    <h2>Tu Código QR de Préstamo</h2>
+    <div id="codigo-qr"></div>
+  </div>
+
+  <script>
+    // ==== 1) Configuración MSAL ====
+    const msalConfig = {
+    auth: {
+      clientId:    "3da09b62-fd51-49a0-87b8-991c9c528bc4",
+      authority:   "https://login.microsoftonline.com/888b0e26-077a-469a-a7a9-03dbf899b973",
+      redirectUri: "https://413xkur4y4m1.github.io/Prestamos.io/"
+    }
+  };
+  const msalClient = new msal.PublicClientApplication(msalConfig);;
+    let accountInfo = null;  // guardaremos nombre/email/msid
+
+    document.getElementById('btnLogin').addEventListener('click', () => {
+      msalClient.loginPopup({ scopes: ["User.Read"] })
+        .then(resp => {
+          accountInfo = resp.account;
+          document.getElementById('login').style.display = 'none';
+          document.getElementById('userInfo').style.display = 'block';
+          document.getElementById('userName').innerText = accountInfo.name;
+          document.getElementById('userEmail').innerText = accountInfo.username;
+          document.getElementById('formPrestamo').style.display = 'block';
+        })
+        .catch(err => console.error(err));
+    });
+
+    // ==== 2) Envío del formulario y generación de QR ====
+    document.getElementById('formPrestamo').addEventListener('submit', evt => {
+      evt.preventDefault();
+      const objeto    = document.getElementById('objeto').value;
+      const fechaHora = document.getElementById('fecha_hora').value;
+      const materia   = document.getElementById('materia').value;
+      const msid      = accountInfo.homeAccountId;  // identificador único MS
+
+      // Cambia esta URL por la de tu Google Apps Script / Azure Function / backend
+      const ENDPOINT = "https://script.google.com/macros/s/AKfycbz3dn424WtOAh0_tdpdVDq_y3cy9oNbQhlfZIrw_4ji6MV8ZWD_Stk_o7qK6KuqKnzv/exec";
+
+      fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: accountInfo.name,
+          email: accountInfo.username,
+          msid: msid,
+          objeto: objeto,
+          fecha: fechaHora,
+          materia: materia
+        })
+      })
+      .then(r => r.json())
+      .then(data => {
+        // Asumimos que el backend devuelve { idPrestamo: 123 }
+        const id = data.idPrestamo;
+        document.getElementById('qrContainer').style.display = 'block';
+        // Generar QR
+        new QRCode(document.getElementById("codigo-qr"), {
+          text: String(id),
+          width: 150,
+          height: 150
+        });
+      })
+      .catch(err => console.error("Error al crear préstamo:", err));
+    });
+  </script>
+</body>
+</html>
