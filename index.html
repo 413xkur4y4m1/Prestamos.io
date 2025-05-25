@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Registro de Préstamo/Adeudo | Universidad</title>
+  <title>Registro de Préstamos y Adeudos | Universidad</title>
   <!-- MSAL.js para OAuth2 con Microsoft (Teams) -->
   <script src="https://alcdn.msauth.net/browser/2.19.0/js/msal-browser.min.js"></script>
   <!-- QRCode.js para generar el código QR en el navegador -->
@@ -15,21 +15,21 @@
     textarea { min-height: 60px; }
     .hide { display: none !important; }
     .success { color: green; }
-    .error { color: red; }
+    .error   { color: red; }
   </style>
 </head>
 <body>
 
   <h1>Registro de Préstamos y Adeudos - Cocina</h1>
+
   <div id="login">
     <button id="btnLogin">Iniciar sesión con Microsoft</button>
   </div>
 
   <div id="userInfo" style="display:none;">
-    <p>Hola, <span id="userName"></span> (<span id="userEmail"></span>)</p>
+    <p>Hola, <strong><span id="userName"></span></strong> (<span id="userEmail"></span>)</p>
   </div>
 
-  <!-- Selección de tipo de registro -->
   <div id="tipoRegistroDiv" style="display:none;">
     <label for="tipoRegistro">¿Qué deseas registrar?</label>
     <select id="tipoRegistro" required>
@@ -38,7 +38,6 @@
     </select>
   </div>
 
-  <!-- Formulario general -->
   <form id="formRegistro" style="display:none;">
     <div>
       <label for="objeto">Objeto:</label>
@@ -47,7 +46,6 @@
         <option value="Cuchillo">Cuchillo</option>
         <option value="Sartén">Sartén</option>
         <option value="Batidora">Batidora</option>
-        <!-- Puedes agregar más objetos aquí -->
       </select>
     </div>
 
@@ -60,7 +58,7 @@
       <label for="fecha_prestamo">Fecha y hora del préstamo:</label>
       <input type="datetime-local" id="fecha_prestamo" name="fecha_prestamo">
     </div>
-    
+
     <div id="fechaLimiteDiv">
       <label for="fecha_limite">Fecha y hora límite de devolución:</label>
       <input type="datetime-local" id="fecha_limite" name="fecha_limite">
@@ -68,7 +66,7 @@
 
     <div id="descripcionDiv" class="hide">
       <label for="descripcion">Descripción del adeudo:</label>
-      <textarea id="descripcion" name="descripcion" placeholder="Ejemplo: Plato roto, daño, etc."></textarea>
+      <textarea id="descripcion" name="descripcion" placeholder="Ej. Plato roto, daño, etc."></textarea>
     </div>
 
     <button type="submit" id="btnEnviar">Registrar</button>
@@ -82,108 +80,106 @@
   <div id="respuesta" style="margin-top:2rem;"></div>
 
   <script>
-    // ==== MSAL ====
+    // ——— Configuración MSAL ———
     const msalConfig = {
       auth: {
-        clientId: "3da09b62-fd51-49a0-87b8-991c9c528bc4",
-        authority: "https://login.microsoftonline.com/888b0e26-077a-469a-a7a9-03dbf899b973",
+        clientId:    "3da09b62-fd51-49a0-87b8-991c9c528bc4",
+        authority:   "https://login.microsoftonline.com/888b0e26-077a-469a-a7a9-03dbf899b973",
         redirectUri: "https://413xkur4y4m1.github.io/Prestamos.io/index.html"
       }
     };
     const msalClient = new msal.PublicClientApplication(msalConfig);
     let accountInfo = null;
 
-    // ===== LOGIN =====
-    document.getElementById('btnLogin').addEventListener('click', () => {
+    // ——— Login con Microsoft ———
+    document.getElementById('btnLogin').onclick = () => {
       msalClient.loginPopup({ scopes: ["User.Read"] })
         .then(resp => {
           accountInfo = resp.account;
-          document.getElementById('login').style.display = 'none';
-          document.getElementById('userInfo').style.display = 'block';
-          document.getElementById('userName').innerText = accountInfo.name;
-          document.getElementById('userEmail').innerText = accountInfo.username;
+          document.getElementById('login').style.display         = 'none';
+          document.getElementById('userInfo').style.display      = 'block';
+          document.getElementById('userName').innerText          = accountInfo.name;
+          document.getElementById('userEmail').innerText         = accountInfo.username;
           document.getElementById('tipoRegistroDiv').style.display = 'block';
         })
-        .catch(err => console.error(err));
-    });
+        .catch(console.error);
+    };
 
-    // Mostrar formulario al seleccionar tipo
-    document.getElementById('tipoRegistro').addEventListener('change', function() {
-      const tipo = this.value;
+    // ——— Mostrar/ocultar campos según tipo ———
+    document.getElementById('tipoRegistro').onchange = function() {
+      const t = this.value;
       document.getElementById('formRegistro').style.display = 'block';
-      // Préstamo: muestra todo, oculta descripción
-      if (tipo === 'prestamo') {
+      if (t === 'prestamo') {
         document.getElementById('materiaDiv').classList.remove('hide');
         document.getElementById('fechaPrestamoDiv').classList.remove('hide');
         document.getElementById('fechaLimiteDiv').classList.remove('hide');
         document.getElementById('descripcionDiv').classList.add('hide');
       } else {
-        // Adeudo: solo objeto y descripción
         document.getElementById('materiaDiv').classList.add('hide');
         document.getElementById('fechaPrestamoDiv').classList.add('hide');
         document.getElementById('fechaLimiteDiv').classList.add('hide');
         document.getElementById('descripcionDiv').classList.remove('hide');
       }
       document.getElementById('qrContainer').style.display = 'none';
-      document.getElementById('respuesta').innerHTML = "";
-    });
+      document.getElementById('respuesta').innerHTML       = '';
+    };
 
-    // ===== ENVÍO FORMULARIO =====
-    document.getElementById('formRegistro').addEventListener('submit', function(evt) {
+    // ——— Envío del formulario usando form-urlencoded ———
+    document.getElementById('formRegistro').onsubmit = function(evt) {
       evt.preventDefault();
-      const tipo = document.getElementById('tipoRegistro').value;
-      const objeto = document.getElementById('objeto').value;
-      const materia = document.getElementById('materia').value;
-      const fecha_prestamo = document.getElementById('fecha_prestamo').value;
-      const fecha_limite = document.getElementById('fecha_limite').value;
-      const descripcion = document.getElementById('descripcion').value;
-
-      // ENDPOINT APPS SCRIPT
-      const ENDPOINT = "https://script.google.com/macros/s/AKfycbz3dn424WtOAh0_tdpdVDq_y3cy9oNbQhlfZIrw_4ji6MV8ZWD_Stk_o7qK6KuqKnzv/exec";
+      const tipo          = document.getElementById('tipoRegistro').value;
+      const objeto        = document.getElementById('objeto').value;
+      const materia       = document.getElementById('materia').value;
+      const fechaPrestamo = document.getElementById('fecha_prestamo').value;
+      const fechaLimite   = document.getElementById('fecha_limite').value;
+      const descripcion   = document.getElementById('descripcion').value;
 
       // Construir payload
-      let payload = {
-        nombre: accountInfo.name,
-        email: accountInfo.username,
-        objeto: objeto,
-        evento: tipo
-      };
-      if (tipo === "prestamo") {
-        payload.materia = materia;
-        payload.fecha_prestamo = fecha_prestamo;
-        payload.fecha_limite = fecha_limite;
+      const params = new URLSearchParams();
+      params.append('nombre',       accountInfo.name);
+      params.append('email',        accountInfo.username);
+      params.append('evento',       tipo);
+      params.append('objeto',       objeto);
+      if (tipo === 'prestamo') {
+        params.append('materia',       materia);
+        params.append('fecha_prestamo', fechaPrestamo);
+        params.append('fecha_limite',   fechaLimite);
       } else {
-        payload.descripcion = descripcion;
+        params.append('descripcion', descripcion);
       }
 
-      fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      // Llamada sin preflight (form-urlencoded)
+      fetch('https://script.google.com/macros/s/AKfycbz3dn424WtOAh0_tdpdVDq_y3cy9oNbQhlfZIrw_4ji6MV8ZWD_Stk_o7qK6KuqKnzv/exec', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:    params.toString()
       })
-      .then(r => r.json())
+      .then(res => res.json())
       .then(data => {
+        const respDiv = document.getElementById('respuesta');
         if (data.ok && data.idPrestamo) {
+          // Mostrar QR
           document.getElementById('qrContainer').style.display = 'block';
-          new QRCode(document.getElementById("codigo-qr"), {
+          document.getElementById('qrContainer').scrollIntoView();
+          new QRCode(document.getElementById('codigo-qr'), {
             text: String(data.idPrestamo),
-            width: 150,
-            height: 150
+            width: 150, height: 150
           });
-          document.getElementById('respuesta').innerHTML = `<p class="success">¡Préstamo registrado correctamente!</p>`;
+          respDiv.innerHTML = '<p class="success">¡Préstamo registrado correctamente!</p>';
         } else if (data.ok && data.idAdeudo) {
           document.getElementById('qrContainer').style.display = 'none';
-          document.getElementById('respuesta').innerHTML = `<p class="success">¡Adeudo registrado y notificado correctamente!</p>`;
+          respDiv.innerHTML = '<p class="success">¡Adeudo registrado y notificado correctamente!</p>';
         } else {
           document.getElementById('qrContainer').style.display = 'none';
-          document.getElementById('respuesta').innerHTML = `<p class="error">Error: ${data.mensaje || 'No se pudo registrar.'}</p>`;
+          respDiv.innerHTML = `<p class="error">Error: ${data.mensaje || data.error || 'No se pudo registrar.'}</p>`;
         }
       })
       .catch(err => {
         document.getElementById('qrContainer').style.display = 'none';
-        document.getElementById('respuesta').innerHTML = `<p class="error">Error al registrar: ${err.message}</p>`;
+        document.getElementById('respuesta').innerHTML        =
+          `<p class="error">Error al registrar: ${err.message}</p>`;
       });
-    });
+    };
   </script>
 </body>
 </html>
